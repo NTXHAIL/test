@@ -1,153 +1,120 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NTX Hail | Carrier Matrix Portal</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <style>
-        .matrix-card { transition: all 0.2s ease; }
-        .matrix-card:hover { transform: translateY(-2px); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); }
-        .carrier-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1.5rem; }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>NTX Hail — Insurance Matrix Estimator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <script crossorigin src="https://unpkg.com/react@18.2.0/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/@babel/standalone@7.24.0/babel.min.js"></script>
+  <style>
+    :root {
+      --ntx-blue: #00D4FF;
+      --ntx-black: #000000;
+      --ntx-surface: #111111;
+      --ntx-text: #FFFFFF;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'DM Sans', sans-serif; background: var(--ntx-black); color: var(--ntx-text); }
+    .header { background: var(--ntx-surface); border-bottom: 2px solid var(--ntx-blue); padding: 15px; position: sticky; top: 0; z-index: 100; }
+    .carrier-select { background: #1a1a1a; border: 1px solid var(--ntx-blue); color: var(--ntx-blue); padding: 8px; border-radius: 5px; font-weight: bold; width: 100%; margin-top: 10px; }
+    /* Logic for MCE Warnings */
+    .mce-warning { color: #ff4444; font-size: 11px; font-weight: bold; margin-top: 5px; }
+  </style>
 </head>
-<body class="bg-slate-50 text-slate-900 font-sans">
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    const { useState, useEffect } = React;
 
-    <nav class="bg-slate-900 text-white p-6 shadow-xl sticky top-0 z-50">
-        <div class="max-w-7xl mx-auto flex justify-between items-center">
-            <div>
-                <h1 class="text-2xl font-black tracking-tighter italic">NTX HAIL</h1>
-                <p class="text-blue-400 text-xs font-bold uppercase tracking-widest">Carrier Pricing Guide 2026</p>
+    // --- PRICING DATA OBJECT ---
+    const CARRIER_DATA = {
+      STATE_FARM: {
+        label: "State Farm (Standard)",
+        matrix: {
+          HOOD: [
+            { range: "1-5", min: 1, max: 5, DIME: 80, NICKEL: 100, QUARTER: 125, HALF: 150 },
+            { range: "6-15", min: 6, max: 15, DIME: 125, NICKEL: 175, QUARTER: 200, HALF: 250 },
+            { range: "16-30", min: 16, max: 30, DIME: 200, NICKEL: 225, QUARTER: 275, HALF: 350 },
+            { range: "31-50", min: 31, max: 50, DIME: 300, NICKEL: 350, QUARTER: 425, HALF: 500 }
+          ],
+          ROOF: [
+            { range: "1-5", min: 1, max: 5, DIME: 100, NICKEL: 125, QUARTER: 150, HALF: 200 },
+            { range: "6-15", min: 6, max: 15, DIME: 175, NICKEL: 225, QUARTER: 250, HALF: 325 }
+          ]
+          // Add remaining SF panels...
+        }
+      },
+      FARMERS: {
+        label: "Farmers (March 2026)",
+        matrix: {
+          HOOD: [
+            { range: "1-5", min: 1, max: 5, DIME: 75, NICKEL: 100, QUARTER: 125, HALF: 150 },
+            { range: "6-15", min: 6, max: 15, DIME: 125, NICKEL: 175, QUARTER: 200, HALF: 300 },
+            { range: "16-30", min: 16, max: 30, DIME: 200, NICKEL: 250, QUARTER: 300, HALF: 375 }
+          ],
+          ROOF: [
+            { range: "1-5", min: 1, max: 5, DIME: 100, NICKEL: 125, QUARTER: 150, HALF: 200 },
+            { range: "6-15", min: 6, max: 15, DIME: 175, NICKEL: 225, QUARTER: 250, HALF: 375 }
+          ]
+        },
+        aluminumMarkup: 0.25 // [cite: 36]
+      },
+      USAA: {
+        label: "USAA (July 2025)",
+        matrix: {
+          HOOD: [
+            { range: "1-5", min: 1, max: 5, DIME: 80, NICKEL: 100, QUARTER: 125, HALF: 150 },
+            { range: "6-15", min: 6, max: 15, DIME: 125, NICKEL: 175, QUARTER: 200, HALF: 250 }
+          ],
+          ROOF: [
+            { range: "1-5", min: 1, max: 5, DIME: 100, NICKEL: 125, QUARTER: 150, HALF: 200 },
+            { range: "6-15", min: 6, max: 15, DIME: 175, NICKEL: 225, QUARTER: 250, HALF: 325 }
+          ]
+        },
+        aluminumDoubleMarkup: 0.35 // [cite: 496]
+      }
+      // Add GEICO, ALLSTATE, etc. following same structure [cite: 8, 48, 324, 471]
+    };
+
+    function HailScope() {
+      const [carrier, setCarrier] = useState("STATE_FARM");
+      const [panelData, setPanelData] = useState({});
+
+      const handleCarrierChange = (e) => {
+        setCarrier(e.target.value);
+        // Alert user that switching carrier resets price calculations
+      };
+
+      return (
+        <div style={{ maxWidth: '480px', margin: '0 auto', background: '#000', minHeight: '100vh' }}>
+          <header className="header">
+            <h1 style={{ color: '#00D4FF', fontSize: '20px', fontWeight: '900' }}>NTX HAIL SCOPE</h1>
+            <select className="carrier-select" value={carrier} onChange={handleCarrierChange}>
+              {Object.keys(CARRIER_DATA).map(key => (
+                <option key={key} value={key}>{CARRIER_DATA[key].label}</option>
+              ))}
+            </select>
+          </header>
+
+          <main style={{ padding: '20px' }}>
+            {/* Diagram and Editor Components go here, passing 'carrier' as a prop */}
+            <div style={{ background: '#111', padding: '15px', borderRadius: '10px', border: '1px solid #222' }}>
+              <h2 style={{ fontSize: '14px', color: '#888' }}>CURRENT MATRIX: {CARRIER_DATA[carrier].label}</h2>
+              <p style={{ fontSize: '12px', marginTop: '10px' }}>
+                Pricing and add-ons are now being calculated using {carrier.replace('_', ' ')} guidelines. 
+                {carrier === 'LIBERTY_MUTUAL' && " Note: 35% maximum cap applies per panel."}
+              </p>
             </div>
-            <div class="hidden md:block text-right">
-                <span class="text-slate-400 text-sm">Last Updated: March 2026</span>
-            </div>
+          </main>
         </div>
-    </nav>
+      );
+    }
 
-    <main class="max-w-7xl mx-auto p-6">
-        
-        <section class="mb-10 bg-blue-600 rounded-2xl p-6 text-white shadow-lg flex flex-col md:flex-row justify-between items-center">
-            <div>
-                <h2 class="text-xl font-bold mb-1"><i class="fas fa-info-circle mr-2"></i>Global PDR Standards</h2>
-                <p class="text-blue-100 opacity-90">Aluminum/HSS (+25%), Double Panels (+25%), Oversize (+$50)</p>
-            </div>
-            <div class="mt-4 md:mt-0 flex gap-4">
-                <div class="bg-blue-800 px-4 py-2 rounded-lg text-sm font-mono border border-blue-400">MAX MARKUP: 35%</div>
-            </div>
-        </section>
-
-        <div class="carrier-grid">
-            
-            <div class="matrix-card bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
-                <div class="bg-slate-800 text-white p-4 font-bold flex justify-between">
-                    USAA <span class="text-blue-400">2025 Matrix</span>
-                </div>
-                <div class="p-4 space-y-2 text-sm">
-                    <div class="flex justify-between border-b pb-1"><span>1-5 Dents (Hood)</span><span class="font-bold">$80</span></div>
-                    <div class="flex justify-between border-b pb-1"><span>6-15 Dents (Roof)</span><span class="font-bold">$225</span></div>
-                    <p class="text-[10px] text-slate-500 italic mt-2">Aluminum/HSS/Double: +25% | Max: 35%</p>
-                </div>
-            </div>
-
-            <div class="matrix-card bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
-                <div class="bg-slate-800 text-white p-4 font-bold flex justify-between">
-                    Farmers <span class="text-blue-400">March 2026</span>
-                </div>
-                <div class="p-4 space-y-2 text-sm">
-                    <div class="flex justify-between border-b pb-1"><span>Aluminum Markup</span><span class="font-bold">25%</span></div>
-                    <div class="flex justify-between border-b pb-1"><span>Oversize (Half Dollar+)</span><span class="font-bold">$50</span></div>
-                    <p class="text-[10px] text-slate-500 italic mt-2">Corrosion Protection: $10/panel (Max $30)</p>
-                </div>
-            </div>
-
-            <div class="matrix-card bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
-                <div class="bg-red-700 text-white p-4 font-bold flex justify-between">
-                    State Farm <span class="text-red-200 text-xs">V1003111</span>
-                </div>
-                <div class="p-4 space-y-2 text-sm">
-                    <div class="flex justify-between border-b pb-1"><span>HSS/Aluminum Markup</span><span class="font-bold">25%</span></div>
-                    <div class="flex justify-between border-b pb-1"><span>Roof (Full Size Van/SUV)</span><span class="font-bold">+25%</span></div>
-                    <p class="text-[10px] text-slate-500 italic mt-2">Max ONE 25% upcharge per panel.</p>
-                </div>
-            </div>
-
-            <div class="matrix-card bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
-                <div class="bg-blue-900 text-white p-4 font-bold flex justify-between">
-                    Allstate <span class="text-blue-300">Hail Matrix</span>
-                </div>
-                <div class="p-4 space-y-2 text-sm">
-                    <div class="flex justify-between border-b pb-1"><span>1-5 Dents (Decklid)</span><span class="font-bold">$75</span></div>
-                    <div class="flex justify-between border-b pb-1"><span>6-15 Dents (Door)</span><span class="font-bold">$125</span></div>
-                    <p class="text-[10px] text-slate-500 italic mt-2">Pricing based on part by size & quantity.</p>
-                </div>
-            </div>
-
-            <div class="matrix-card bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
-                <div class="bg-emerald-700 text-white p-4 font-bold flex justify-between">
-                    Geico <span class="text-emerald-200">2024 Guide</span>
-                </div>
-                <div class="p-4 space-y-2 text-sm">
-                    <div class="flex justify-between border-b pb-1"><span>Dbl Panel Alum/HSS</span><span class="font-bold">+30%</span></div>
-                    <div class="flex justify-between border-b pb-1"><span>Oversize Dent</span><span class="font-bold">$50</span></div>
-                    <p class="text-[10px] text-slate-500 italic mt-2">SUV/Truck Roof Add-on: 25%</p>
-                </div>
-            </div>
-
-            <div class="matrix-card bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
-                <div class="bg-sky-600 text-white p-4 font-bold flex justify-between">
-                    Progressive <span class="text-sky-100 italic">01/25</span>
-                </div>
-                <div class="p-4 space-y-2 text-sm">
-                    <div class="flex justify-between border-b pb-1"><span>Double Oversize (DOS)</span><span class="font-bold">$100</span></div>
-                    <div class="flex justify-between border-b pb-1"><span>Extended Panel</span><span class="font-bold">+25%</span></div>
-                    <p class="text-[10px] text-slate-500 italic mt-2">Max 35% upcharge per panel.</p>
-                </div>
-            </div>
-
-            <div class="matrix-card bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
-                <div class="bg-blue-800 text-white p-4 font-bold flex justify-between">
-                    Nationwide <span class="text-blue-300">PDR</span>
-                </div>
-                <div class="p-4 space-y-2 text-sm">
-                    <div class="flex justify-between border-b pb-1"><span>HSS Rails Markup</span><span class="font-bold">25%</span></div>
-                    <div class="flex justify-between border-b pb-1"><span>Aluminum Double</span><span class="font-bold">+35%</span></div>
-                    <p class="text-[10px] text-slate-500 italic mt-2">"CR" indicates damage may require replacement.</p>
-                </div>
-            </div>
-
-            <div class="matrix-card bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
-                <div class="bg-yellow-500 text-slate-900 p-4 font-bold flex justify-between">
-                    Liberty Mutual/Safeco
-                </div>
-                <div class="p-4 space-y-2 text-sm">
-                    <div class="flex justify-between border-b pb-1"><span>First Add-on</span><span class="font-bold">25%</span></div>
-                    <div class="flex justify-between border-b pb-1"><span>Second Add-on</span><span class="font-bold">10%</span></div>
-                    <p class="text-[10px] text-slate-800 italic mt-2 font-bold italic">Max Charge: 35%</p>
-                </div>
-            </div>
-
-        </div>
-
-        <section class="mt-12 bg-white rounded-2xl p-8 border border-slate-200 shadow-sm">
-            <h2 class="text-xl font-bold mb-4 text-slate-700 underline decoration-blue-500 underline-offset-8">Critical Estimating Notes</h2>
-            <div class="grid md:grid-cols-2 gap-8 text-sm leading-relaxed text-slate-600">
-                <ul class="space-y-3">
-                    <li class="flex items-start"><i class="fas fa-shield-alt mt-1 mr-3 text-blue-500"></i> **Corrosion Protection:** $10 per panel, up to a max of $30 per vehicle. [cite: 44, 481, 492, 528]</li>
-                    <li class="flex items-start"><i class="fas fa-coins mt-1 mr-3 text-blue-500"></i> **Oversize:** Generally $50 per dent exceeding half-dollar size. [cite: 39, 83, 459, 494, 528]</li>
-                </ul>
-                <ul class="space-y-3">
-                    <li class="flex items-start"><i class="fas fa-layer-group mt-1 mr-3 text-blue-500"></i> **Double Panels:** 25% markup applicable when the entire panel is double-layered. [cite: 43, 83, 477, 498]</li>
-                    <li class="flex items-start"><i class="fas fa-exclamation-triangle mt-1 mr-3 text-amber-500"></i> **MCE Logic:** When dent count exceeds matrix limits, negotiate for Most Cost Effective repair. [cite: 1, 135, 513]</li>
-                </ul>
-            </div>
-        </section>
-    </main>
-
-    <footer class="p-10 text-center text-slate-400 text-xs">
-        &copy; 2026 NTX Hail Shop Advisor | Proprietary Field Guide
-    </footer>
-
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<HailScope />);
+  </script>
 </body>
 </html>
